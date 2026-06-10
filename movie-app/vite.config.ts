@@ -11,4 +11,15 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  server: {
+    proxy: {
+      "/tmdb-api": {
+        target: "https://api.themoviedb.org/3",
+        changeOrigin: true,
+        secure: false,
+        followRedirects: true,
+        rewrite: (path) => path.replace(/^\/tmdb-api/, ""),
+      },
+    },
+  },
 });

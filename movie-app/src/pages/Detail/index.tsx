@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 
 import { Poster, Loader, Error, Section } from "@/common";
 import { Casts, Videos, Genre } from "./components";
+import BookmarkButton from "@/features/watchlist/BookmarkButton";
 
 import { useGetShowQuery } from "@/services/TMDB";
 import { useMotion } from "@/hooks/useMotion";
@@ -55,6 +56,13 @@ const Detail = () => {
     videos,
     credits,
   } = movie;
+
+  const watchlistItem = {
+    id: String(id),
+    category: (category as "movie" | "tv") || "movie",
+    title: title || name || "",
+    poster_path: posterPath || "",
+  };
 
   const backgroundStyle = {
     backgroundImage: `linear-gradient(to top, rgba(0,0,0), rgba(0,0,0,0.98),rgba(0,0,0,0.8) ,rgba(0,0,0,0.4)),url('https://image.tmdb.org/t/p/original/${posterPath}'`,
@@ -108,6 +116,10 @@ const Detail = () => {
                 {!show ? "show more" : "show less"}
               </button>
             </m.p>
+
+            <m.div variants={fadeDown} className="will-change-transform motion-reduce:transform-none">
+              <BookmarkButton item={watchlistItem} variant="inline" />
+            </m.div>
 
             <Casts casts={credits?.cast || []} />
           </m.div>

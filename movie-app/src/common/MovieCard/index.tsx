@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { FaYoutube } from "react-icons/fa";
+import { useMediaQuery } from "usehooks-ts";
 
 import Image from "../Image";
 import { IMovie } from "@/types";
-import { useMediaQuery } from "usehooks-ts";
+import BookmarkButton from "@/features/watchlist/BookmarkButton";
 
 const MovieCard = ({
   movie,
@@ -14,6 +15,14 @@ const MovieCard = ({
 }) => {
   const { poster_path, original_title: title, name, id } = movie;
   const isMobile = useMediaQuery("(max-width: 380px)");
+
+  const watchlistItem = {
+    id: String(id),
+    category: category as "movie" | "tv",
+    title: title || name || "",
+    poster_path: poster_path || "",
+  };
+
   return (
     <>
       <Link
@@ -29,6 +38,8 @@ const MovieCard = ({
           effect="zoomIn"
         />
 
+        <BookmarkButton item={watchlistItem} />
+
         <div className="absolute top-0 left-0 w-[170px]  h-full group-hover:opacity-100 opacity-0 bg-[rgba(0,0,0,0.6)] transition-all duration-300 rounded-lg flex items-center justify-center">
           <div className="xs:text-[48px] text-[42px] text-[#ff0000] scale-[0.4] group-hover:scale-100 transition-all duration-300 ">
             <FaYoutube />
@@ -43,4 +54,4 @@ const MovieCard = ({
   );
 };
 
-export default MovieCard
+export default MovieCard;
