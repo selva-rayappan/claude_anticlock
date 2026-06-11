@@ -1,5 +1,6 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '../src/generated/prisma/client'
+import bcrypt from 'bcryptjs'
 import path from 'path'
 
 const url = `file:${path.resolve(process.cwd(), 'dev.db').split('\\').join('/')}`
@@ -43,6 +44,12 @@ const deals = [
   { title: 'AI Integration Pilot',        company: 'Novus AI Ltd.',        value: 31000, stage: 'WON',       createdAt: new Date('2026-05-22') },
 ]
 
+const users = [
+  { name: 'Admin User',   email: 'admin@relay.com',   password: 'admin123',   role: 'ADMIN'   },
+  { name: 'Jane Manager', email: 'manager@relay.com',  password: 'manager123', role: 'MANAGER' },
+  { name: 'John User',    email: 'user@relay.com',     password: 'user123',    role: 'USER'    },
+]
+
 async function main() {
   for (const c of contacts) {
     await prisma.contact.upsert({
@@ -58,6 +65,16 @@ async function main() {
     await prisma.deal.create({ data: d })
   }
   console.log(`Seeded ${deals.length} deals.`)
+
+  for (const u of users) {
+    const hashed = await bcrypt.hash(u.password, 12)
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: { role: u.role },
+      create: { name: u.name, email: u.email, password: hashed, role: u.role },
+    })
+  }
+  console.log(`Seeded ${users.length} users.`)
 }
 
 main()

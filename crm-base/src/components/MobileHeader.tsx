@@ -4,7 +4,11 @@ import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { logout } from '@/app/actions/auth'
 
-export function MobileHeader() {
+interface MobileHeaderProps {
+  user?: { name: string; email: string; role: string }
+}
+
+export function MobileHeader({ user }: MobileHeaderProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -55,7 +59,6 @@ export function MobileHeader() {
         className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-out
           ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* Close button floats over the sidebar */}
         <button
           onClick={() => setOpen(false)}
           className="absolute top-3.5 right-3 z-10 p-1.5 rounded-md text-slate-500 hover:text-white hover:bg-white/[0.08] transition-colors"
@@ -65,7 +68,7 @@ export function MobileHeader() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <Sidebar onNavigate={() => setOpen(false)} />
+        <Sidebar user={user} onNavigate={() => setOpen(false)} />
       </div>
     </div>
   )

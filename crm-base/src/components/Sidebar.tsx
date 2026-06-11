@@ -45,7 +45,12 @@ function DisabledNavItem({ label, icon }: { label: string; icon: React.ReactNode
   )
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
+interface SidebarProps {
+  onNavigate?: () => void
+  user?: { name: string; email: string; role: string }
+}
+
+export function Sidebar({ onNavigate, user }: SidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -124,6 +129,31 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             </svg>
           }
         />
+
+        {/* Admin section — only for ADMIN role */}
+        {user?.role === 'ADMIN' && (
+          <>
+            <div className="px-3 pt-4 pb-1">
+              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">Admin</p>
+            </div>
+            <NavItem
+              href="/admin/users"
+              label="Users"
+              active={pathname.startsWith('/admin/users')}
+              onClick={onNavigate}
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                  <path d="M16 3.13a4 4 0 010 7.75" />
+                  <path d="M20 8v6M17 11h6" />
+                </svg>
+              }
+            />
+          </>
+        )}
       </nav>
 
       {/* Bottom nav */}
@@ -147,11 +177,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       <div className="px-4 py-3.5 border-t border-white/[0.06]">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
-            <span className="text-[11px] font-semibold text-indigo-300">JD</span>
+            <span className="text-[11px] font-semibold text-indigo-300">
+              {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+            </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-medium text-slate-300 leading-none truncate">John Doe</p>
-            <p className="text-[10px] text-slate-600 mt-0.5 leading-none truncate">Admin</p>
+            <p className="text-[12px] font-medium text-slate-300 leading-none truncate">{user?.name ?? 'User'}</p>
+            <p className="text-[10px] text-slate-600 mt-0.5 leading-none truncate">{user?.role ?? 'USER'}</p>
           </div>
           <form action={logout}>
             <button

@@ -1,18 +1,21 @@
+import { getSession } from '@/lib/auth'
 import { Sidebar } from '@/components/Sidebar'
 import { MobileHeader } from '@/components/MobileHeader'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession()
+  const user = session
+    ? { name: session.name, email: session.email, role: session.role }
+    : { name: 'Guest', email: '', role: 'USER' }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* Desktop sidebar */}
       <div className="hidden md:block">
-        <Sidebar />
+        <Sidebar user={user} />
       </div>
 
-      {/* Mobile top bar + drawer */}
-      <MobileHeader />
+      <MobileHeader user={user} />
 
-      {/* Main content — top padding on mobile for the fixed 56px bar */}
       <main className="flex-1 overflow-y-auto bg-white flex flex-col pt-14 md:pt-0">
         {children}
       </main>

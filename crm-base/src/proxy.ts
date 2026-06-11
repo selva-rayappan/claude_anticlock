@@ -1,14 +1,35 @@
+import { jwtVerify } from 'jose'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login']
+const PUBLIC_PATHS  = ['/login', '/register']
 const SESSION_COOKIE = 'relay-session'
-const SESSION_TOKEN  = 'authenticated'
 
-export function proxy(request: NextRequest) {
+function secret() {
+  const s = process.env.SESSION_SECRET ?? 'relay-crm-dev-secret-change-in-prod'
+  return new TextEncoder().encode(s)
+}
+
+async function getSession(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, secret())
+    return payload as { sub?: string; role?: string }
+  } catch {
+    return null
+  }
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isPublic    = PUBLIC_PATHS.includes(pathname)
-  const isLoggedIn  = request.cookies.get(SESSION_COOKIE)?.value === SESSION_TOKEN
+
+  // Always allow Google OAuth flow and static assets
+  if (pathname.startsWith('/api/auth/google')) return NextResponse.next()
+
+  const isPublic  = PUBLIC_PATHS.includes(pathname)
+  const session   = await getSession(request)
+  const isLoggedIn = session !== null
 
   if (!isLoggedIn && !isPublic) {
     const url = request.nextUrl.clone()
@@ -17,6 +38,13 @@ export function proxy(request: NextRequest) {
   }
 
   if (isLoggedIn && isPublic) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
+  // Admin routes require ADMIN role
+  if (pathname.startsWith('/admin') && session?.role !== 'ADMIN') {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

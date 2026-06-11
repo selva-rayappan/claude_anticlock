@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { useActionState } from 'react'
-import { login } from '@/app/actions/auth'
+import { register } from '@/app/actions/auth'
 
-export default function LoginPage() {
-  const [state, action, pending] = useActionState(login, null)
+export default function RegisterPage() {
+  const [state, action, pending] = useActionState(register, null)
 
   return (
     <div className="min-h-screen bg-[#0F1117] flex items-center justify-center px-4">
@@ -21,14 +21,14 @@ export default function LoginPage() {
           </div>
           <div>
             <p className="text-[15px] font-semibold text-white tracking-tight leading-none">Relay CRM</p>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-none">Sign in to continue</p>
+            <p className="text-[11px] text-slate-500 mt-0.5 leading-none">Create your account</p>
           </div>
         </div>
 
         {/* Card */}
         <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-7">
-          <h1 className="text-[17px] font-semibold text-white mb-1">Welcome back</h1>
-          <p className="text-[13px] text-slate-500 mb-6">Enter your credentials to access the dashboard.</p>
+          <h1 className="text-[17px] font-semibold text-white mb-1">Get started</h1>
+          <p className="text-[13px] text-slate-500 mb-6">Create an account to access the CRM.</p>
 
           {/* Google OAuth */}
           <a
@@ -54,12 +54,26 @@ export default function LoginPage() {
 
           <form action={action} className="space-y-4">
             <div>
+              <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Full Name</label>
+              <input
+                name="name"
+                type="text"
+                autoComplete="name"
+                autoFocus
+                required
+                placeholder="Your name"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.10]
+                  text-sm text-white placeholder:text-slate-600
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-colors"
+              />
+            </div>
+
+            <div>
               <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Email</label>
               <input
                 name="email"
                 type="email"
                 autoComplete="email"
-                autoFocus
                 required
                 placeholder="you@example.com"
                 className="w-full px-3.5 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.10]
@@ -73,7 +87,21 @@ export default function LoginPage() {
               <input
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
+                required
+                placeholder="Min. 8 characters"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.10]
+                  text-sm text-white placeholder:text-slate-600
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Confirm Password</label>
+              <input
+                name="confirm"
+                type="password"
+                autoComplete="new-password"
                 required
                 placeholder="••••••••"
                 className="w-full px-3.5 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.10]
@@ -105,17 +133,17 @@ export default function LoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                   </svg>
-                  Signing in…
+                  Creating account…
                 </>
-              ) : 'Sign in'}
+              ) : 'Create account'}
             </button>
           </form>
         </div>
 
         <p className="text-center text-[12px] text-slate-600 mt-5">
-          Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-indigo-400 hover:text-indigo-300 transition-colors">
-            Create one
+          Already have an account?{' '}
+          <Link href="/login" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+            Sign in
           </Link>
         </p>
       </div>
