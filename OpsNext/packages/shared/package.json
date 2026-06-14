@@ -1,0 +1,26 @@
+{
+  "name": "@opsnext/shared",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared Zod schemas, TypeScript types, and utilities for OpsNext",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./types": "./src/types/index.ts",
+    "./constants": "./src/constants/index.ts",
+    "./utils": "./src/utils/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@opsnext/config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

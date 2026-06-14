@@ -1,0 +1,78 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: web
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opsnext-ingress
+      ports:
+        - protocol: TCP
+          port: 3001
+  egress:
+    # Allow DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+    # Allow PostgreSQL
+    - ports:
+        - protocol: TCP
+          port: 5432
+    # Allow Redis
+    - ports:
+        - protocol: TCP
+          port: 6379
+    # Allow Typesense
+    - ports:
+        - protocol: TCP
+          port: 8108
+    # Allow OTEL Collector
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opsnext-monitoring
+      ports:
+        - protocol: TCP
+          port: 4317
+    # Allow HTTPS outbound (Resend, Stripe, etc.)
+    - ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opsnext-ingress
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 443

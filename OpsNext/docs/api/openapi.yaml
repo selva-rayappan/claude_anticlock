@@ -1,0 +1,1192 @@
+openapi: 3.1.0
+info:
+  title: OpsNext CRM API
+  version: 1.0.0
+  description: |
+    Multi-tenant SaaS CRM platform API.
+
+    ## Authentication
+    All endpoints (except health, auth, and platform registration) require a Bearer JWT in the
+    `Authorization` header. JWTs are issued by `POST /api/v1/auth/login`.
+
+    ## Tenant Resolution
+    Include `X-Tenant-Slug: {your-slug}` header on all requests (except platform registration
+    and JWKS endpoint). Alternatively, access via subdomain `{slug}.api.opsnext.io`.
+
+    ## Pagination
+    All list endpoints use cursor-based pagination. Pass `cursor` from the previous
+    response's `meta.pagination.nextCursor` to fetch the next page.
+  contact:
+    name: OpsNext Engineering
+    email: engineering@opsnext.io
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://api-staging.opsnext.io
+    description: Staging
+  - url: https://api.opsnext.io
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Health
+    description: Infrastructure health checks
+  - name: Auth
+    description: Authentication and session management
+  - name: Platform
+    description: Tenant registration and platform operations
+  - name: Contacts
+    description: Contact management
+  - name: Accounts
+    description: Account/company management
+  - name: Leads
+    description: Lead management
+  - name: Opportunities
+    description: Deal and opportunity management
+  - name: Pipelines
+    description: Sales pipeline configuration and board
+  - name: Activities
+    description: Activity logging and timeline
+  - name: Tasks
+    description: Task management
+  - name: Notifications
+    description: In-app notifications and preferences
+  - name: Search
+    description: Global search across entities
+  - name: Admin
+    description: Tenant administration
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    tenantSlug:
+      name: X-Tenant-Slug
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
+      example: acme-corp
+    cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Opaque pagination cursor from previous response
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    entityId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    # ── Common ───────────────────────────────────────────────────
+    Meta:
+      type: object
+      properties:
+        requestId:
+          type: string
+          example: req-4bf92f35
+        timestamp:
+          type: string
+          format: date-time
+      required: [requestId, timestamp]
+
+    Pagination:
+      type: object
+      properties:
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+        total:
+          type: integer
+          description: Approximate total count
+
+    ListMeta:
+      allOf:
+        - $ref: '#/components/schemas/Meta'
+        - type: object
+          properties:
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+      required: [message]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Request validation failed.
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+            traceId:
+              type: string
+          required: [code, message, traceId]
+
+    # ── Health ───────────────────────────────────────────────────
+    HealthBasic:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        service:
+          type: string
+          example: opsnext-api
+      required: [status, service]
+
+    HealthDetailed:
+      type: object
+      properties:
+        database:
+          type: string
+          enum: [ok, error]
+        redis:
+          type: string
+          enum: [ok, error]
+      required: [database, redis]
+
+    # ── Auth ─────────────────────────────────────────────────────
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@acme.com
+        password:
+          type: string
+          minLength: 8
+          example: Admin@1234
+      required: [email, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: RS256 signed JWT (8-hour expiry)
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          example: 28800
+          description: Expiry in seconds
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required: [accessToken, tokenType, expiresIn, user]
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required: [email, password, firstName, lastName]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INVITED, DEACTIVATED]
+        roles:
+          type: array
+          items:
+            type: string
+        tenantId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, firstName, lastName, status, roles, tenantId, createdAt]
+
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required: [email]
+
+    ResetPasswordRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+      required: [token, newPassword]
+
+    # ── Platform / Tenant ─────────────────────────────────────────
+    TenantRegisterRequest:
+      type: object
+      properties:
+        orgName:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Acme Corporation
+        adminEmail:
+          type: string
+          format: email
+          example: admin@acme.com
+        adminPassword:
+          type: string
+          minLength: 8
+          example: Admin@1234
+        adminFirstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Alice
+        adminLastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Smith
+        slug:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
+          description: Optional. Auto-generated from orgName if omitted.
+          example: acme-corporation
+      required: [orgName, adminEmail, adminPassword, adminFirstName, adminLastName]
+
+    TenantRegisterResponse:
+      type: object
+      properties:
+        tenant:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            slug:
+              type: string
+            name:
+              type: string
+            schemaName:
+              type: string
+            status:
+              type: string
+              enum: [ACTIVE]
+            createdAt:
+              type: string
+              format: date-time
+        accessToken:
+          type: string
+          description: JWT for the provisioned admin user
+
+    # ── Contact ───────────────────────────────────────────────────
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phones:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [mobile, work, home, other]
+              number:
+                type: string
+        title:
+          type: string
+          nullable: true
+        accountId:
+          type: string
+          format: uuid
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        source:
+          type: string
+          nullable: true
+        emailOptOut:
+          type: boolean
+          default: false
+        customFields:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, firstName, lastName, email, phones, tags, emailOptOut, createdAt, updatedAt]
+
+    CreateContactRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        phones:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              number:
+                type: string
+            required: [number]
+        title:
+          type: string
+          maxLength: 150
+        accountId:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        tags:
+          type: array
+          items:
+            type: string
+        source:
+          type: string
+        customFields:
+          type: object
+          additionalProperties: true
+      required: [firstName, lastName, email]
+
+    ContactListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contact'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+
+    # ── Opportunity ───────────────────────────────────────────────
+    Opportunity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        accountId:
+          type: string
+          format: uuid
+          nullable: true
+        contactId:
+          type: string
+          format: uuid
+          nullable: true
+        pipelineId:
+          type: string
+          format: uuid
+        stageId:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+          nullable: true
+        value:
+          type: number
+          format: decimal
+        currency:
+          type: string
+          example: USD
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+        expectedCloseDate:
+          type: string
+          format: date
+          nullable: true
+        customFields:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, pipelineId, stageId, value, currency, probability, createdAt, updatedAt]
+
+paths:
+  # ── Health ────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Basic health check
+      operationId: healthBasic
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthBasic'
+              example:
+                status: ok
+                service: opsnext-api
+
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Detailed health check (DB + Redis)
+      operationId: healthDetailed
+      security: []
+      responses:
+        '200':
+          description: All dependencies healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDetailed'
+        '503':
+          description: One or more dependencies degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDetailed'
+
+  # ── Auth ──────────────────────────────────────────────────────
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and obtain access token
+      operationId: login
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: httpOnly refresh token cookie (30-day expiry)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LoginResponse'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          description: Invalid credentials or account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user in the tenant
+      operationId: register
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered; verification email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: Verification email sent. Please check your inbox.
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke tokens)
+      operationId: logout
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      responses:
+        '204':
+          description: Logged out successfully
+        '401':
+          description: Unauthorized
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      operationId: getMe
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          description: Unauthorized
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token using httpOnly cookie
+      operationId: refreshToken
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      responses:
+        '200':
+          description: New access token issued; refresh token rotated
+          headers:
+            Set-Cookie:
+              description: New httpOnly refresh token cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      expiresIn:
+                        type: integer
+        '401':
+          description: Refresh token invalid or expired
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      operationId: forgotPassword
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Reset email sent (same response whether email exists or not)
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Apply password reset token
+      operationId: resetPassword
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successfully
+        '400':
+          description: Token invalid or expired
+
+  /api/v1/auth/verify-email:
+    get:
+      tags: [Auth]
+      summary: Verify email address via token from email link
+      operationId: verifyEmail
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/tenantSlug'
+      responses:
+        '200':
+          description: Email verified; user is now ACTIVE
+        '400':
+          description: Token invalid or expired
+
+  # ── Platform ──────────────────────────────────────────────────
+  /api/v1/platform/tenants/register:
+    post:
+      tags: [Platform]
+      summary: Register a new tenant (provisions schema + admin user)
+      operationId: registerTenant
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantRegisterRequest'
+            example:
+              orgName: Acme Corporation
+              adminEmail: admin@acme.com
+              adminPassword: Admin@1234
+              adminFirstName: Alice
+              adminLastName: Smith
+      responses:
+        '201':
+          description: Tenant provisioned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TenantRegisterResponse'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Slug already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/platform/tenants/check-slug:
+    get:
+      tags: [Platform]
+      summary: Check if a tenant slug is available
+      operationId: checkSlug
+      security: []
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
+      responses:
+        '200':
+          description: Slug availability result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      slug:
+                        type: string
+                      available:
+                        type: boolean
+                      reason:
+                        type: string
+                        description: Why unavailable (TAKEN or RESERVED), if applicable
+                        nullable: true
+
+  /api/v1/platform/tenants/me:
+    get:
+      tags: [Platform]
+      summary: Get current tenant profile
+      operationId: getTenantMe
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      responses:
+        '200':
+          description: Current tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      slug:
+                        type: string
+                      name:
+                        type: string
+                      status:
+                        type: string
+                      subscriptionTier:
+                        type: string
+                      config:
+                        type: object
+
+  # ── Contacts ──────────────────────────────────────────────────
+  /api/v1/contacts:
+    get:
+      tags: [Contacts]
+      summary: List contacts
+      operationId: listContacts
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+        - $ref: '#/components/parameters/cursor'
+        - $ref: '#/components/parameters/limit'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: -createdAt
+          description: "Comma-separated sort fields. Prefix - for descending. Example: -createdAt,lastName"
+        - name: filter[ownerId][eq]
+          in: query
+          schema:
+            type: string
+        - name: filter[tags][array_contains]
+          in: query
+          schema:
+            type: string
+        - name: filter[createdAt][gte]
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[createdAt][lte]
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Full-text search via Typesense
+      responses:
+        '200':
+          description: Paginated contacts list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Contacts]
+      summary: Create a contact
+      operationId: createContact
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '201':
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Contact'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Duplicate email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/contacts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/entityId'
+      - $ref: '#/components/parameters/tenantSlug'
+    get:
+      tags: [Contacts]
+      summary: Get contact by ID
+      operationId: getContact
+      responses:
+        '200':
+          description: Contact detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Contact'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Contacts]
+      summary: Update a contact (PATCH semantics — only provided fields updated)
+      operationId: updateContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '200':
+          description: Contact updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Contacts]
+      summary: Soft delete a contact
+      operationId: deleteContact
+      responses:
+        '204':
+          description: Contact deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Opportunities ─────────────────────────────────────────────
+  /api/v1/opportunities:
+    get:
+      tags: [Opportunities]
+      summary: List opportunities
+      operationId: listOpportunities
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+        - $ref: '#/components/parameters/cursor'
+        - $ref: '#/components/parameters/limit'
+        - name: filter[pipelineId][eq]
+          in: query
+          schema:
+            type: string
+        - name: filter[stageId][eq]
+          in: query
+          schema:
+            type: string
+        - name: filter[ownerId][eq]
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated opportunities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Opportunity'
+                  meta:
+                    $ref: '#/components/schemas/ListMeta'
+
+  /api/v1/opportunities/{id}/stage:
+    patch:
+      tags: [Opportunities]
+      summary: Move opportunity to a new stage (Kanban drag)
+      operationId: changeOpportunityStage
+      parameters:
+        - $ref: '#/components/parameters/entityId'
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stageId:
+                  type: string
+                  format: uuid
+              required: [stageId]
+      responses:
+        '200':
+          description: Stage updated
+        '422':
+          description: Stage not in pipeline
+
+  /api/v1/opportunities/{id}/close:
+    post:
+      tags: [Opportunities]
+      summary: Mark opportunity as won or lost
+      operationId: closeOpportunity
+      parameters:
+        - $ref: '#/components/parameters/entityId'
+        - $ref: '#/components/parameters/tenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                outcome:
+                  type: string
+                  enum: [WON, LOST]
+                reason:
+                  type: string
+                note:
+                  type: string
+              required: [outcome]
+      responses:
+        '200':
+          description: Opportunity closed
+
+  # ── Search ────────────────────────────────────────────────────
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: Global search across entity types
+      operationId: globalSearch
+      parameters:
+        - $ref: '#/components/parameters/tenantSlug'
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: types
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [contact, account, lead, opportunity]
+          style: form
+          explode: false
+          description: Entity types to search. Defaults to all.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        '200':
+          description: Search results grouped by entity type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      contacts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            firstName:
+                              type: string
+                            lastName:
+                              type: string
+                            email:
+                              type: string
+                            highlight:
+                              type: string
+                              description: Snippet showing matched text
+                      accounts:
+                        type: array
+                        items:
+                          type: object
+                      leads:
+                        type: array
+                        items:
+                          type: object
+                      opportunities:
+                        type: array
+                        items:
+                          type: object
+
+  /api/v1/.well-known/jwks.json:
+    get:
+      tags: [Auth]
+      summary: RS256 public key (JWKS format) for external JWT verification
+      operationId: getJwks
+      security: []
+      responses:
+        '200':
+          description: JSON Web Key Set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+
+  responses:
+    Unauthorized:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

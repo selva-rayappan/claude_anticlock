@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: opsnext-staging
+
+resources:
+  - ../../base
+
+namePrefix: ""
+
+patches:
+  # Reduce replicas for staging
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: api
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: web
+
+  # Reduce resource limits for staging
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "512Mi"
+    target:
+      kind: Deployment
+      name: api
+
+  # HPA min=1 for staging
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+    target:
+      kind: HorizontalPodAutoscaler
+      name: api-hpa
+
+  # Staging hosts
+  - patch: |-
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: app-staging.opsnext.io
+      - op: replace
+        path: /spec/tls/0/hosts/1
+        value: api-staging.opsnext.io
+      - op: replace
+        path: /spec/rules/0/host
+        value: api-staging.opsnext.io
+      - op: replace
+        path: /spec/rules/1/host
+        value: app-staging.opsnext.io
+    target:
+      kind: Ingress
+      name: opsnext-ingress
+
+  # Staging service account (IRSA role)
+  - patch: |-
+      - op: replace
+        path: /metadata/annotations/eks.amazonaws.com~1role-arn
+        value: "arn:aws:iam::ACCOUNT_ID:role/opsnext-api-staging"
+    target:
+      kind: ServiceAccount
+      name: opsnext-api
+
+configMapGenerator:
+  - name: opsnext-config
+    behavior: merge
+    literals:
+      - API_URL=https://api-staging.opsnext.io
+      - APP_URL=https://app-staging.opsnext.io
+
+images:
+  - name: opsnext/api
+    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/opsnext/api
+    newTag: latest   # Updated by CI with sha-{commit}
+  - name: opsnext/web
+    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/opsnext/web
+    newTag: latest

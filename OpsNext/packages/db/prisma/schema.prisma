@@ -1,0 +1,123 @@
+// ═══════════════════════════════════════════════════════════════════
+// OpsNext CRM — Prisma Schema
+// Platform (public) schema: Tenant, PlatformAdmin, TenantSubscription
+// Tenant schemas are dynamically provisioned per tenant
+// ═══════════════════════════════════════════════════════════════════
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  schemas    = ["public"]
+  extensions = [pgcrypto, pg_trgm, citext]
+}
+
+// ─────────────────────────────────────────────
+// PLATFORM (PUBLIC) SCHEMA — shared infrastructure
+// ─────────────────────────────────────────────
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+
+  @@schema("public")
+}
+
+enum SubscriptionTier {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+
+  @@schema("public")
+}
+
+model Tenant {
+  id               String           @id @default(cuid())
+  slug             String           @unique @db.VarChar(50)
+  name             String           @db.VarChar(255)
+  status           TenantStatus     @default(ACTIVE)
+  subscriptionTier SubscriptionTier @default(BASIC)
+  schemaName       String           @unique @db.VarChar(70)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  config       TenantConfig?
+  subscription TenantSubscription?
+  usageMetrics TenantUsageMetrics?
+
+  @@index([slug])
+  @@index([status])
+  @@schema("public")
+}
+
+model TenantConfig {
+  id           String  @id @default(cuid())
+  tenantId     String  @unique
+  logoUrl      String? @db.VarChar(500)
+  primaryColor String? @db.VarChar(7)
+  timezone     String  @default("UTC") @db.VarChar(100)
+  currency     String  @default("USD") @db.VarChar(3)
+  language     String  @default("en") @db.VarChar(10)
+  dateFormat   String  @default("MM/DD/YYYY") @db.VarChar(20)
+  featureFlags Json    @default("{}")
+  ssoProvider  String? @db.VarChar(50)
+  ssoConfig    Json? // encrypted
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model TenantUsageMetrics {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  userCount          Int      @default(0)
+  contactCount       Int      @default(0)
+  accountCount       Int      @default(0)
+  leadCount          Int      @default(0)
+  opportunityCount   Int      @default(0)
+  apiCallsThisMonth  Int      @default(0)
+  storageBytes       BigInt   @default(0)
+  lastUpdatedAt      DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model PlatformAdmin {
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255)
+  passwordHash  String
+  mfaEnabled    Boolean   @default(false)
+  mfaSecret     String?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@schema("public")
+}
+
+model TenantSubscription {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique
+  stripeCustomerId     String   @unique @db.VarChar(100)
+  stripePriceId        String?  @db.VarChar(100)
+  stripeSubscriptionId String?  @db.VarChar(100)
+  status               String   @default("trialing") @db.VarChar(50)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  trialEndsAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}

@@ -1,0 +1,46 @@
+{
+  "name": "opsnext",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OpsNext — Production-grade multi-tenant SaaS CRM platform",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "clean": "turbo run clean && rimraf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore",
+    "prepare": "husky",
+    "db:generate": "pnpm --filter @opsnext/db db:generate",
+    "db:migrate": "pnpm --filter @opsnext/db db:migrate",
+    "db:push": "pnpm --filter @opsnext/db db:push",
+    "db:studio": "pnpm --filter @opsnext/db db:studio",
+    "db:seed": "pnpm --filter @opsnext/db db:seed"
+  },
+  "devDependencies": {
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings 0",
+      "prettier --write"
+    ],
+    "**/*.{js,jsx,json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "packageManager": "pnpm@11.6.0"
+}

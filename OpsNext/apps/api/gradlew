@@ -1,0 +1,27 @@
+#!/bin/sh
+# Gradle wrapper script for Unix/Mac
+# Falls back to system gradle if wrapper JAR not present.
+
+set -e
+
+APP_HOME="$(cd "$(dirname "$0")" && pwd)"
+GRADLE_WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+if [ ! -f "$GRADLE_WRAPPER_JAR" ]; then
+    echo ""
+    echo "INFO: gradle-wrapper.jar not found — falling back to system Gradle."
+    echo "Run 'gradle wrapper --gradle-version 8.11.1' once to generate the wrapper JAR."
+    echo ""
+    exec gradle "$@"
+fi
+
+if [ -z "$JAVA_HOME" ]; then
+    JAVA_EXE=java
+else
+    JAVA_EXE="$JAVA_HOME/bin/java"
+fi
+
+exec "$JAVA_EXE" -Xmx64m -Xms64m \
+    -Dorg.gradle.appname="$(basename "$0")" \
+    -classpath "$GRADLE_WRAPPER_JAR" \
+    org.gradle.wrapper.GradleWrapperMain "$@"

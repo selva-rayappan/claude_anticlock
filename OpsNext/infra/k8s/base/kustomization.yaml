@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: opsnext
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap.yaml
+  - network-policy.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - web-deployment.yaml
+  - web-service.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: opsnext
+  app.kubernetes.io/managed-by: kustomize

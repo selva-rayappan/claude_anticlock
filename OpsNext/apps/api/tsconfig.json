@@ -1,0 +1,15 @@
+{
+  "extends": "@opsnext/config/tsconfig/node",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "paths": {
+      "@opsnext/shared": ["../../packages/shared/src/index.ts"],
+      "@opsnext/shared/*": ["../../packages/shared/src/*"],
+      "@opsnext/db": ["../../packages/db/src/index.ts"],
+      "@opsnext/db/*": ["../../packages/db/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

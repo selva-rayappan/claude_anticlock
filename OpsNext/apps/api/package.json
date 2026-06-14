@@ -1,0 +1,13 @@
+{
+  "name": "@opsnext/api",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OpsNext CRM — Java 21 + Spring Boot 3 API server",
+  "scripts": {
+    "dev": "cmd /c gradlew.bat bootRun --args=\"--spring.profiles.active=dev\"",
+    "build": "cmd /c gradlew.bat bootJar",
+    "test": "cmd /c gradlew.bat test",
+    "typecheck": "echo 'Java — use: gradlew compileJava'",
+    "lint": "echo 'Java — use: gradlew checkstyleMain'"
+  }
+}

@@ -1,0 +1,75 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: opsnext-prod
+
+resources:
+  - ../../base
+
+patches:
+  # Production replicas
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 4
+    target:
+      kind: Deployment
+      name: api
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: web
+
+  # Production resource limits
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "1000m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+    target:
+      kind: Deployment
+      name: api
+
+  # Production HPA
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 4
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+    target:
+      kind: HorizontalPodAutoscaler
+      name: api-hpa
+
+  # Production IRSA role
+  - patch: |-
+      - op: replace
+        path: /metadata/annotations/eks.amazonaws.com~1role-arn
+        value: "arn:aws:iam::ACCOUNT_ID:role/opsnext-api-prod"
+    target:
+      kind: ServiceAccount
+      name: opsnext-api
+
+configMapGenerator:
+  - name: opsnext-config
+    behavior: merge
+    literals:
+      - API_URL=https://api.opsnext.io
+      - APP_URL=https://app.opsnext.io
+
+images:
+  - name: opsnext/api
+    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/opsnext/api
+    newTag: latest   # Updated by release workflow with v{version}
+  - name: opsnext/web
+    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/opsnext/web
+    newTag: latest

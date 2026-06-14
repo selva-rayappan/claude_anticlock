@@ -1,0 +1,10 @@
+.gradle/
+build/
+.idea/
+*.iml
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+.env
+.env.*
+!.env.example
