@@ -189,17 +189,17 @@ public class ContactService {
         appendIfNotNull(setClauses, params, "email = ?", req.email());
         appendIfNotNull(setClauses, params, "title = ?", req.title());
         
-        if (req.company() != null) {
-            String accountId = null;
-            if (!req.company().isBlank()) {
-                accountId = resolveAccountId(req.company(), principal);
-            }
+        if (req.company() != null && !req.company().isBlank()) {
+            // Company name provided — resolve or create account
+            String accountId = resolveAccountId(req.company(), principal);
             setClauses.add("account_id = ?");
             params.add(accountId);
         } else if (req.accountId() != null) {
+            // Direct accountId provided — use it
             setClauses.add("account_id = ?");
             params.add(req.accountId());
         }
+        // If neither company nor accountId is provided, leave account_id unchanged
 
         appendIfNotNull(setClauses, params, "owner_id = ?", req.ownerId());
         appendIfNotNull(setClauses, params, "source = ?", req.source());

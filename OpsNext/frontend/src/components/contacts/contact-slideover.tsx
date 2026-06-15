@@ -110,7 +110,13 @@ export function ContactSlideOver({ open, onClose, onSuccess, contact }: ContactS
 
   function onSubmit(values: CreateValues) {
     if (isEdit) {
-      updateMutation.mutate(values);
+      // For updates: don't send empty-string optional fields — keep existing values
+      const updatePayload: Record<string, unknown> = { ...values };
+      if (!updatePayload.company) delete updatePayload.company;
+      if (!updatePayload.title) delete updatePayload.title;
+      if (!updatePayload.website) delete updatePayload.website;
+      if (!updatePayload.phone) delete updatePayload.phone;
+      updateMutation.mutate(updatePayload as UpdateValues);
     } else {
       createMutation.mutate(values);
     }
