@@ -35,6 +35,17 @@ const EMPTY_DEFAULTS: CreateValues = {
   customFields: {},
 };
 
+function safeParseJSON<T>(val: any, fallback: T): T {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val) as T;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  return val ?? fallback;
+}
+
 function contactToFormValues(contact: Contact): CreateValues {
   return {
     firstName: contact.firstName,
@@ -45,9 +56,9 @@ function contactToFormValues(contact: Contact): CreateValues {
     company: contact.company ?? '',
     website: contact.website ?? '',
     leadStatus: (contact.leadStatus as CreateValues['leadStatus']) ?? 'NEW',
-    phones: contact.phones ?? [],
+    phones: safeParseJSON(contact.phones, []),
     tags: contact.tags ?? [],
-    customFields: contact.customFields ?? {},
+    customFields: safeParseJSON(contact.customFields, {}),
   };
 }
 
@@ -55,7 +66,7 @@ interface ContactSlideOverProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  contact?: Contact;
+  contact?: Contact | undefined;
 }
 
 export function ContactSlideOver({ open, onClose, onSuccess, contact }: ContactSlideOverProps) {
@@ -188,7 +199,7 @@ export function ContactSlideOver({ open, onClose, onSuccess, contact }: ContactS
             type="button"
             className="flex-1"
             disabled={isPending}
-            onClick={form.handleSubmit(onSubmit)}
+            onClick={form.handleSubmit(onSubmit, (errors) => console.error('Form validation errors:', errors))}
           >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEdit ? 'Save changes' : 'Create contact'}

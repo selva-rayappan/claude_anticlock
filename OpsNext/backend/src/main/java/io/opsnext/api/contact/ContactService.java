@@ -34,6 +34,7 @@ public class ContactService {
         m.put("emailOptOut", rs.getBoolean("email_opt_out"));
         m.put("accountId", rs.getString("account_id"));
         m.put("accountName", rs.getString("account_name"));
+        m.put("company", rs.getString("account_name"));
         m.put("ownerId", rs.getString("owner_id"));
         m.put("ownerName", rs.getString("owner_name"));
 
@@ -131,10 +132,35 @@ public class ContactService {
         return contact;
     }
 
+    private String resolveAccountId(String companyName, SecurityPrincipal principal) {
+        if (companyName == null || companyName.isBlank()) {
+            return null;
+        }
+        String sql = "SELECT id FROM accounts WHERE name = ? AND deleted_at IS NULL LIMIT 1";
+        List<String> ids = db.query(sql, (rs, rowNum) -> rs.getString("id"), companyName.trim());
+        if (!ids.isEmpty()) {
+            return ids.get(0);
+        }
+        String newId = UUID.randomUUID().toString();
+        String ownerId = principal.userId();
+        db.execute("""
+            INSERT INTO accounts (id, name, owner_id, created_at, updated_at)
+            VALUES (?, ?, ?, NOW(), NOW())
+            """,
+            newId, companyName.trim(), ownerId
+        );
+        return newId;
+    }
+
     @Transactional
     public Map<String, Object> create(ContactRequest.Create req, SecurityPrincipal principal) {
         String id = UUID.randomUUID().toString();
         String ownerId = req.ownerId() != null ? req.ownerId() : principal.userId();
+
+        String accountId = req.accountId();
+        if (req.company() != null && !req.company().isBlank()) {
+            accountId = resolveAccountId(req.company(), principal);
+        }
 
         db.execute("""
             INSERT INTO contacts (id, first_name, last_name, email, title, account_id, owner_id,
@@ -143,7 +169,7 @@ public class ContactService {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, NOW(), NOW())
             """,
             id, req.firstName(), req.lastName(), req.email(), req.title(),
-            req.accountId(), ownerId, req.source(), req.leadSource(),
+            accountId, ownerId, req.source(), req.leadSource(),
             req.emailOptOut() != null && req.emailOptOut(),
             toArray(req.tags()), toJson(req.phones()), toJson(req.address()),
             toJson(req.socialHandles()), toJson(req.customFields())
@@ -162,7 +188,19 @@ public class ContactService {
         appendIfNotNull(setClauses, params, "last_name = ?", req.lastName());
         appendIfNotNull(setClauses, params, "email = ?", req.email());
         appendIfNotNull(setClauses, params, "title = ?", req.title());
-        appendIfPresent(setClauses, params, "account_id = ?", req.accountId(), existing.containsKey("accountId"));
+        
+        if (req.company() != null) {
+            String accountId = null;
+            if (!req.company().isBlank()) {
+                accountId = resolveAccountId(req.company(), principal);
+            }
+            setClauses.add("account_id = ?");
+            params.add(accountId);
+        } else if (req.accountId() != null) {
+            setClauses.add("account_id = ?");
+            params.add(req.accountId());
+        }
+
         appendIfNotNull(setClauses, params, "owner_id = ?", req.ownerId());
         appendIfNotNull(setClauses, params, "source = ?", req.source());
         appendIfNotNull(setClauses, params, "lead_source = ?", req.leadSource());
