@@ -1,4 +1,4 @@
-import type { Address } from './contact.js';
+import type { Address } from './contact';
 
 export type CompanySize = 'MICRO' | 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE';
 

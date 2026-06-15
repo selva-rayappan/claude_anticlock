@@ -3,7 +3,9 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "composite": true
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

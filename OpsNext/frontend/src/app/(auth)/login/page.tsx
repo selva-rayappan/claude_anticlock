@@ -28,6 +28,19 @@ export default function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
+  function devBypass() {
+    setUser({
+      id: 'dev-user-1',
+      email: 'admin@demo.local',
+      firstName: 'Demo',
+      lastName: 'Admin',
+      roles: ['TENANT_ADMIN'],
+      tenantId: 'dev-tenant-1',
+      tier: 'PROFESSIONAL',
+    });
+    router.push('/dashboard');
+  }
+
   async function onSubmit(values: LoginFormValues) {
     setLoading(true);
     try {
@@ -89,6 +102,17 @@ export default function LoginPage() {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign in
           </Button>
+
+          {process.env.NODE_ENV === 'development' && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-2 border-dashed text-muted-foreground"
+              onClick={devBypass}
+            >
+              Dev bypass — skip login
+            </Button>
+          )}
         </form>
 
         <div className="mt-4 text-center text-sm text-muted-foreground">
