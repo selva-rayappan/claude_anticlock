@@ -3,3 +3,320 @@ You are a senior Business consultant. Generate list of functional requirments fo
 You are a Chief Product Officer, Enterprise Solution Architect, Program Manager, Engineering Manager, Technical Lead, QA Lead, Security Architect, and DevOps Architect.Your task is to analyze the Functional Requirements Document (FRD) for the product "OpsNext" and generate a complete execution task plan that can be directly used by engineering teams, project managers, architects, QA teams, DevOps engineers, and AI coding agents. Think like a software consulting company preparing a Statement of Work (SOW), Project Plan, Technical Roadmap, Task Plan, Sprint Plan, and Delivery Plan as .MD file.
 
 You are a Principal Enterprise Architect, Product Manager, Business Analyst, UX Designer, DevOps Architect, Security Architect, and Senior Full Stack Engineer. Your task is to design and build a production-grade SaaS CRM platform named OpsNext.You must think like the engineering team responsible for building the next HubSpot, Zoho CRM, and ERPNext for professional services firms.
+
+
+Input
+
+I will provide:
+
+Business Requirements Document (BRD)
+Functional Requirements Document (FRD)
+Non-Functional Requirements (NFR)
+User Stories (if available)
+
+You must analyze all provided requirements.
+
+Do not assume functionality that is not explicitly required unless it is necessary for enterprise-grade implementation.
+
+Required Output
+
+Generate a complete Execution Task Plan.
+
+The output should be structured as follows.
+
+1. Product Breakdown Structure (PBS)
+
+Create a hierarchical decomposition of the product.
+
+Example:
+
+Firm360
+├── Platform Foundation
+├── Authentication
+├── Tenant Management
+├── User Management
+├── CRM
+│   ├── Leads
+│   ├── Contacts
+│   ├── Organizations
+│   ├── Opportunities
+├── Activities
+├── Tasks
+├── Documents
+├── Dashboards
+├── Reporting
+├── Integrations
+└── Administration
+
+Provide:
+
+Module Name
+Description
+Priority
+Dependencies
+2. Work Breakdown Structure (WBS)
+
+Generate a detailed WBS.
+
+For each module provide:
+
+Epic
+Feature
+User Story
+Technical Task
+Sub Task
+
+Example:
+
+Epic:
+Lead Management
+
+Feature:
+Create Lead
+
+Technical Tasks:
+- Database Table
+- API Endpoint
+- Service Layer
+- Validation
+- UI Form
+- Unit Test
+- Integration Test
+3. Architecture Workstream
+
+Generate tasks for:
+
+Solution Architecture
+System Architecture
+Multi-Tenant Strategy
+API Design
+Security Architecture
+Database Architecture
+ERD
+Schema Design
+Index Strategy
+Audit Strategy
+Integration Architecture
+Salesforce
+Zoho
+PowerApps
+Excel
+
+Deliverables for each task.
+
+4. UI/UX Workstream
+
+Generate:
+
+Design System
+Branding
+Typography
+Color System
+Screens
+
+List every screen required.
+
+Example:
+
+Login
+Dashboard
+Lead List
+Lead Details
+Create Lead
+Contact List
+Contact Details
+...
+
+For every screen include:
+
+Description
+Components
+Complexity (Low/Medium/High)
+5. Backend Workstream
+
+Generate tasks for:
+
+API Development
+Service Layer
+Repository Layer
+Validation
+Security
+Logging
+Audit
+Error Handling
+
+Provide effort estimate.
+
+6. Frontend Workstream
+
+Generate tasks for:
+
+Layout
+Navigation
+Forms
+Tables
+Dashboards
+Reporting
+Responsive Design
+
+Provide effort estimate.
+
+7. Database Workstream
+
+Generate:
+
+Tables
+Relationships
+Constraints
+Indexes
+Migrations
+
+Provide implementation sequence.
+
+8. DevOps Workstream
+
+Generate tasks for:
+
+Source Control
+GitHub Repository
+CI/CD
+Docker
+Kubernetes
+Monitoring
+Logging
+Secrets Management
+Backup Strategy
+9. QA Workstream
+
+Generate:
+
+Test Strategy
+Unit Tests
+Integration Tests
+API Tests
+Security Tests
+Performance Tests
+E2E Tests
+
+For every feature identify test cases.
+
+10. Security Workstream
+
+Generate tasks for:
+
+Authentication
+Authorization
+MFA
+Audit Logging
+OWASP Controls
+Rate Limiting
+Encryption
+11. Data Migration Workstream
+
+Generate tasks for:
+
+Excel Import
+CSV Import
+Salesforce Migration
+Zoho Migration
+Data Validation
+12. Integration Workstream
+
+Generate tasks for:
+
+Excel
+PowerApps
+Salesforce
+Zoho
+Outlook
+
+For each integration include:
+
+APIs Required
+Authentication Method
+Sync Strategy
+Error Handling
+13. AI Readiness Workstream
+
+Generate future-ready architecture tasks for:
+
+AI Copilot
+Lead Scoring
+Opportunity Prediction
+Meeting Summaries
+AI Search
+
+Identify architectural decisions needed today.
+
+14. Sprint Plan
+
+Generate:
+
+Sprint 0
+
+Environment Setup
+
+Sprint 1
+
+Foundation
+
+Sprint 2
+
+Authentication
+
+Sprint 3
+
+Tenant Management
+
+Sprint 4
+
+CRM Core
+
+Sprint 5
+
+Activities & Tasks
+
+Sprint 6
+
+Documents & Reporting
+
+Sprint 7
+
+Integrations
+
+Sprint 8
+
+Hardening & Release
+
+For each sprint provide:
+
+Objectives
+Deliverables
+Dependencies
+Risks
+
+Output Format
+
+Generate the output as:
+
+Executive Summary
+Product Breakdown Structure
+Work Breakdown Structure
+Workstreams
+Sprint Plan
+Estimation
+Risk Register
+Release Plan
+Claude Code Development Plan
+
+Use Markdown format.
+
+Be extremely detailed.
+
+Assume the system must scale to:
+
+10,000 tenants
+100,000 users
+Millions of CRM records
+
+Optimize for enterprise-grade SaaS architecture.
