@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: opsnext-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/opsnext
+    username: opsnext
+    password: opsnext_dev
+    hikari:
+      maximum-pool-size: 20
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASS:}
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+opsnext:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-change-in-production-minimum-32-chars}
+    access-token-expiry-hours: 8
+    refresh-token-expiry-days: 30
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:opsnext_minio}
+    secret-key: ${MINIO_SECRET_KEY:opsnext_minio_dev}
+    bucket: opsnext-exports
+  export:
+    download-url-expiry-hours: 24
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n"

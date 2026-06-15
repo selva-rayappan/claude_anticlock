@@ -1,0 +1,211 @@
+openapi: "3.0.3"
+info:
+  title: OpsNext — Notifications API
+  version: "1.0"
+  description: |
+    Endpoints for reading and managing in-app notifications. Notifications are
+    created server-side by scheduled jobs and service events. The client reads
+    them via polling or a Server-Sent Events stream.
+
+tags:
+  - name: Notifications
+
+paths:
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications for the authenticated user
+      description: |
+        Returns paginated notifications for the current user, most recent first.
+        Unread-only filter is provided via the `unread` query parameter.
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: When true, returns only unread notifications.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification with read_at set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications as read for the current user
+      responses:
+        "200":
+          description: Count of notifications marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      markedRead:
+                        type: integer
+
+  /api/v1/notifications/stream:
+    get:
+      tags: [Notifications]
+      summary: Server-Sent Events stream for real-time notifications
+      description: |
+        Streams new notifications to the client as Server-Sent Events.
+        Each event has type "notification" and a JSON-encoded Notification payload.
+        Client should reconnect on disconnect. Authentication is via the same
+        Bearer token in the Authorization header.
+
+        Note: This endpoint is optional for Phase 1; polling `/api/v1/notifications`
+        is the fallback. Implement SSE only after the polling flow is verified.
+      responses:
+        "200":
+          description: SSE stream (text/event-stream)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Each event:
+                  event: notification
+                  data: { ...Notification object }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  schemas:
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+            - TASK_DUE
+            - NEW_ASSIGNMENT
+            - DEAL_STAGE_CHANGED
+            - MENTION
+            - WORKFLOW_TRIGGERED
+            - IMPORT_COMPLETE
+            - STALE_DEAL
+            - SYSTEM_ALERT
+        title:
+          type: string
+          description: Short display title (shown in notification bell)
+        body:
+          type: string
+          description: Full notification body
+        data:
+          type: object
+          description: |
+            Structured payload for deep-linking. For TASK_DUE:
+              { "taskId": "...", "taskTitle": "...", "dueAt": "..." }
+            For NEW_ASSIGNMENT:
+              { "taskId": "...", "taskTitle": "...", "assignedBy": "..." }
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null = unread
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Notification"
+
+    NotificationPage:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Notification"
+            total:
+              type: integer
+            unreadCount:
+              type: integer
+              description: Total unread count for the badge indicator
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: JWT missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Notification not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

@@ -1,0 +1,439 @@
+openapi: "3.0.3"
+info:
+  title: OpsNext — Tasks API
+  version: "1.0"
+  description: |
+    Endpoints for creating, managing, and completing tasks. Tasks are
+    tenant-scoped and may optionally be associated with a CRM record.
+    All endpoints require JWT authentication and X-Tenant-Slug header.
+
+tags:
+  - name: Tasks
+
+paths:
+  /api/v1/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks
+      description: |
+        Returns a paginated list of tasks. Use myTasks=true for the current
+        user's assigned tasks. Use overdue=true for the manager overdue view.
+        Filters are combinable.
+      parameters:
+        - name: assigneeId
+          in: query
+          schema:
+            type: string
+          description: Filter by assignee user ID. Ignored when myTasks=true.
+        - name: entityType
+          in: query
+          schema:
+            type: string
+            enum: [CONTACT, ACCOUNT, OPPORTUNITY, LEAD]
+        - name: entityId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, IN_PROGRESS, COMPLETED, CANCELLED]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [LOW, MEDIUM, HIGH, URGENT]
+        - name: myTasks
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: When true, returns only tasks assigned to the authenticated user.
+        - name: overdue
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, returns only tasks where due_at < NOW() and
+            status is OPEN or IN_PROGRESS. Intended for the Manager Overdue view.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated task list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Tasks]
+      summary: Create a task
+      description: |
+        Creates a task. assigneeId defaults to the authenticated user if omitted.
+        entityType and entityId are optional for standalone tasks.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+            examples:
+              with_entity:
+                summary: Task linked to a Deal
+                value:
+                  title: "Send proposal to Acme Corp"
+                  entityType: OPPORTUNITY
+                  entityId: "opp-uuid-5678"
+                  priority: HIGH
+                  dueDate: "2026-06-18T17:00:00Z"
+                  assigneeId: "user-uuid-abc"
+              standalone:
+                summary: Standalone task
+                value:
+                  title: "Weekly pipeline review"
+                  priority: MEDIUM
+                  dueDate: "2026-06-16T09:00:00Z"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tasks/{id}:
+    get:
+      tags: [Tasks]
+      summary: Get task by ID
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Task detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Tasks]
+      summary: Update a task
+      description: |
+        Updates task fields. Sales Rep may only update tasks they created or
+        are assigned to. Sales Manager may update any task in the tenant.
+        Changing assigneeId triggers a NEW_ASSIGNMENT notification to the
+        new assignee. Changing dueDate reschedules pending email reminders.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdateRequest"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Tasks]
+      summary: Cancel (soft-delete) a task
+      description: |
+        Sets task status to CANCELLED. Sales Rep may only cancel tasks they
+        created or are assigned to. Sales Manager may cancel any task.
+        Cancellation also cancels all pending email reminders for this task.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "204":
+          description: Cancelled
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tasks/{id}/complete:
+    post:
+      tags: [Tasks]
+      summary: Mark a task as completed
+      description: |
+        Transitions task status to COMPLETED and records completedAt. If the
+        task is a recurring instance with recurrenceEnabled=true, a new task
+        instance is created automatically with the due date advanced by the
+        recurrence interval. Completing also cancels pending email reminders.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completionNote:
+                  type: string
+                  description: Optional note recorded at completion.
+      responses:
+        "200":
+          description: Completed task (and next recurrence instance if applicable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskCompleteResponse"
+        "409":
+          description: Task already completed or cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+components:
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    TaskCreateRequest:
+      type: object
+      required: [title, priority]
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        entityType:
+          type: string
+          enum: [CONTACT, ACCOUNT, OPPORTUNITY, LEAD]
+          description: CRM record type. Omit for standalone tasks.
+        entityId:
+          type: string
+        assigneeId:
+          type: string
+          description: Defaults to the authenticated user if omitted.
+        dueDate:
+          type: string
+          format: date-time
+          description: Optional due date/time in ISO 8601 UTC.
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          default: MEDIUM
+        status:
+          type: string
+          enum: [OPEN, IN_PROGRESS]
+          default: OPEN
+        isRecurring:
+          type: boolean
+          default: false
+          description: Whether this task should recur (P3 feature).
+        recurrencePattern:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY]
+          description: Required when isRecurring=true.
+
+    TaskUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        assigneeId:
+          type: string
+          description: Reassigning triggers a NEW_ASSIGNMENT notification.
+        dueDate:
+          type: string
+          format: date-time
+          description: Updating reschedules pending email reminders.
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        status:
+          type: string
+          enum: [OPEN, IN_PROGRESS]
+          description: Use POST /complete to move to COMPLETED.
+        recurrenceEnabled:
+          type: boolean
+          description: Set false to stop recurring chain at this instance.
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        entityType:
+          type: string
+          nullable: true
+          enum: [CONTACT, ACCOUNT, OPPORTUNITY, LEAD, null]
+        entityId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [OPEN, IN_PROGRESS, COMPLETED, CANCELLED]
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        assigneeId:
+          type: string
+          nullable: true
+        assigneeName:
+          type: string
+          nullable: true
+        creatorId:
+          type: string
+          nullable: true
+        creatorName:
+          type: string
+          nullable: true
+        isRecurring:
+          type: boolean
+        recurrencePattern:
+          type: string
+          nullable: true
+          enum: [DAILY, WEEKLY, MONTHLY, null]
+        recurrenceEnabled:
+          type: boolean
+        parentTaskId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TaskResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Task"
+
+    TaskCompleteResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            completedTask:
+              $ref: "#/components/schemas/Task"
+            nextRecurrence:
+              $ref: "#/components/schemas/Task"
+              nullable: true
+              description: |
+                Populated when the completed task was recurring and a new
+                instance was created. Null if recurrence is disabled or the
+                task was not recurring.
+
+    TaskPage:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Task"
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              nullable: true
+
+  responses:
+    Unauthorized:
+      description: JWT token missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: Caller lacks permission to modify this task
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Task not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

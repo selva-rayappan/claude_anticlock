@@ -1,0 +1,313 @@
+openapi: "3.0.3"
+info:
+  title: OpsNext — Activities API
+  version: "1.0"
+  description: |
+    Endpoints for logging and managing activities (Call, Email, Meeting, Note)
+    against CRM records or standalone. All endpoints require JWT authentication
+    (Bearer token) and an X-Tenant-Slug header resolved to the tenant context.
+
+tags:
+  - name: Activities
+
+paths:
+  /api/v1/activities:
+    get:
+      tags: [Activities]
+      summary: List activities
+      description: |
+        Returns a paginated list of activities. Filter by entity to get the
+        Timeline for a specific CRM record (Contact, Account/Company, or Opportunity/Deal).
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+            enum: [CONTACT, ACCOUNT, OPPORTUNITY, LEAD]
+          description: CRM record type. Omit for standalone activities.
+        - name: entityId
+          in: query
+          schema:
+            type: string
+          description: CRM record ID. Required if entityType is provided.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated activity list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Activities]
+      summary: Log a new activity
+      description: |
+        Creates an activity of type Call, Email, Meeting, or Note. The
+        authenticated user is recorded as the author (owner_id). entityType
+        and entityId are optional — omit both for a standalone activity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityCreateRequest"
+            examples:
+              call:
+                summary: Log a Call against a Contact
+                value:
+                  entityType: CONTACT
+                  entityId: "contact-uuid-1234"
+                  type: CALL
+                  subject: "Initial outreach"
+                  outcome: "Positive — demo requested"
+                  scheduledAt: "2026-06-15T10:30:00Z"
+                  durationMinutes: 15
+              note:
+                summary: Standalone Note
+                value:
+                  type: NOTE
+                  subject: "Meeting prep notes"
+                  body: "Review Q2 numbers before Thursday call"
+      responses:
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/activities/{id}:
+    put:
+      tags: [Activities]
+      summary: Update an activity
+      description: |
+        Updates subject, body, outcome, scheduledAt, or durationMinutes.
+        Only the activity author (owner_id) or a Sales Manager role may update.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityUpdateRequest"
+      responses:
+        "200":
+          description: Updated activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Activities]
+      summary: Delete (soft-delete) an activity
+      description: |
+        Soft-deletes the activity. Only the activity author or a Sales Manager
+        may delete. Deleted activities are hidden from Timeline responses.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  schemas:
+    ActivityCreateRequest:
+      type: object
+      required: [type, subject]
+      properties:
+        entityType:
+          type: string
+          enum: [CONTACT, ACCOUNT, OPPORTUNITY, LEAD]
+          description: CRM record type. Omit for standalone.
+        entityId:
+          type: string
+          description: CRM record ID. Required when entityType is provided.
+        type:
+          type: string
+          enum: [CALL, EMAIL, MEETING, NOTE]
+        subject:
+          type: string
+          maxLength: 500
+        body:
+          type: string
+          description: Description or notes body
+        outcome:
+          type: string
+          description: Outcome or result (especially useful for CALL / MEETING)
+        scheduledAt:
+          type: string
+          format: date-time
+          description: When the activity occurred. Defaults to NOW() if omitted.
+        durationMinutes:
+          type: integer
+          minimum: 0
+          description: Duration in minutes (CALL and MEETING only)
+
+    ActivityUpdateRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+          maxLength: 500
+        body:
+          type: string
+        outcome:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+          minimum: 0
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+        entityType:
+          type: string
+          nullable: true
+          enum: [CONTACT, ACCOUNT, OPPORTUNITY, LEAD, null]
+        entityId:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [CALL, EMAIL, MEETING, NOTE]
+        subject:
+          type: string
+        body:
+          type: string
+          nullable: true
+        outcome:
+          type: string
+          nullable: true
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMinutes:
+          type: integer
+          nullable: true
+        ownerId:
+          type: string
+        ownerName:
+          type: string
+        pinned:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ActivityResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Activity"
+
+    ActivityPage:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Activity"
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+  responses:
+    Unauthorized:
+      description: JWT token missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: Caller lacks permission to modify this resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Activity not found or soft-deleted
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: ACTIVITY_NOT_FOUND
+            message:
+              type: string
+            details:
+              type: object
+              nullable: true
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
