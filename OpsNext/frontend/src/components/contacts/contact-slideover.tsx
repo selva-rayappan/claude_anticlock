@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, X } from 'lucide-react';
-import { createContactSchema } from '@opsnext/shared';
+import { createContactSchema, updateContactSchema } from '@opsnext/shared';
+import type { Contact } from '@opsnext/shared';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,35 +16,65 @@ import { toast } from '@/components/ui/toaster';
 import { useMutation } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
-type FormValues = z.infer<typeof createContactSchema>;
+type CreateValues = z.infer<typeof createContactSchema>;
+type UpdateValues = z.infer<typeof updateContactSchema>;
+
+const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'UNQUALIFIED', 'CONVERTED'] as const;
+
+const EMPTY_DEFAULTS: CreateValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  title: '',
+  company: '',
+  website: '',
+  leadStatus: 'NEW',
+  phones: [],
+  tags: [],
+  customFields: {},
+};
+
+function contactToFormValues(contact: Contact): CreateValues {
+  return {
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    phone: contact.phone ?? '',
+    title: contact.title ?? '',
+    company: contact.company ?? '',
+    website: contact.website ?? '',
+    leadStatus: (contact.leadStatus as CreateValues['leadStatus']) ?? 'NEW',
+    phones: contact.phones ?? [],
+    tags: contact.tags ?? [],
+    customFields: contact.customFields ?? {},
+  };
+}
 
 interface ContactSlideOverProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  defaultValues?: Partial<FormValues>;
+  contact?: Contact;
 }
 
-export function ContactSlideOver({ open, onClose, onSuccess, defaultValues }: ContactSlideOverProps) {
-  const form = useForm<FormValues>({
-    resolver: zodResolver(createContactSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      title: '',
-      company: '',
-      leadStatus: 'NEW',
-      ...defaultValues,
-    },
+export function ContactSlideOver({ open, onClose, onSuccess, contact }: ContactSlideOverProps) {
+  const isEdit = !!contact;
+
+  const form = useForm<CreateValues>({
+    resolver: zodResolver(isEdit ? updateContactSchema : createContactSchema),
+    defaultValues: EMPTY_DEFAULTS,
   });
 
   useEffect(() => {
-    if (open) form.reset({ firstName: '', lastName: '', email: '', title: '', company: '', leadStatus: 'NEW', ...defaultValues });
-  }, [open]);
+    if (open) {
+      form.reset(isEdit ? contactToFormValues(contact) : EMPTY_DEFAULTS);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contact?.id]);
 
-  const mutation = useMutation({
-    mutationFn: (values: FormValues) => api.post(paths.contacts.create, values),
+  const createMutation = useMutation({
+    mutationFn: (values: CreateValues) => api.post(paths.contacts.create, values),
     onSuccess: () => {
       toast({ title: 'Contact created', variant: 'success' });
       onSuccess();
@@ -53,14 +84,35 @@ export function ContactSlideOver({ open, onClose, onSuccess, defaultValues }: Co
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (values: UpdateValues) => api.put(paths.contacts.update(contact!.id), values),
+    onSuccess: () => {
+      toast({ title: 'Contact updated', variant: 'success' });
+      onSuccess();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Failed to update contact', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  function onSubmit(values: CreateValues) {
+    if (isEdit) {
+      updateMutation.mutate(values);
+    } else {
+      createMutation.mutate(values);
+    }
+  }
+
+  const leadStatusValue = form.watch('leadStatus');
+
   return (
     <>
-      {/* Backdrop */}
       <div
         className={cn('fixed inset-0 bg-black/40 z-40 transition-opacity', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
         onClick={onClose}
       />
-      {/* Panel */}
       <div
         className={cn(
           'fixed right-0 top-0 h-full w-full max-w-md bg-background border-l shadow-xl z-50 flex flex-col',
@@ -69,11 +121,11 @@ export function ContactSlideOver({ open, onClose, onSuccess, defaultValues }: Co
         )}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">New contact</h2>
+          <h2 className="text-lg font-semibold">{isEdit ? 'Edit contact' : 'New contact'}</h2>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="h-4 w-4" /></button>
         </div>
 
-        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="flex-1 overflow-y-auto p-6 space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>First name *</Label>
@@ -88,7 +140,7 @@ export function ContactSlideOver({ open, onClose, onSuccess, defaultValues }: Co
           </div>
 
           <div className="space-y-1">
-            <Label>Email</Label>
+            <Label>Email {!isEdit && '*'}</Label>
             <Input type="email" {...form.register('email')} />
             {form.formState.errors.email && <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}
           </div>
@@ -104,11 +156,20 @@ export function ContactSlideOver({ open, onClose, onSuccess, defaultValues }: Co
           </div>
 
           <div className="space-y-1">
+            <Label>Website</Label>
+            <Input type="url" placeholder="https://example.com" {...form.register('website')} />
+            {form.formState.errors.website && <p className="text-xs text-destructive">{form.formState.errors.website.message}</p>}
+          </div>
+
+          <div className="space-y-1">
             <Label>Lead status</Label>
-            <Select onValueChange={(v) => form.setValue('leadStatus', v as FormValues['leadStatus'])} defaultValue="NEW">
+            <Select
+              value={leadStatusValue ?? 'NEW'}
+              onValueChange={(v) => form.setValue('leadStatus', v as CreateValues['leadStatus'], { shouldDirty: true })}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {['NEW', 'CONTACTED', 'QUALIFIED', 'UNQUALIFIED'].map((s) => (
+                {LEAD_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
@@ -122,15 +183,15 @@ export function ContactSlideOver({ open, onClose, onSuccess, defaultValues }: Co
         </form>
 
         <div className="flex items-center gap-3 px-6 py-4 border-t">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" className="flex-1" onClick={onClose} type="button">Cancel</Button>
           <Button
             type="button"
             className="flex-1"
-            disabled={mutation.isPending}
-            onClick={form.handleSubmit((v) => mutation.mutate(v))}
+            disabled={isPending}
+            onClick={form.handleSubmit(onSubmit)}
           >
-            {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create contact
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEdit ? 'Save changes' : 'Create contact'}
           </Button>
         </div>
       </div>

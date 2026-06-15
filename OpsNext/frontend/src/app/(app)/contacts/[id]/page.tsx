@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { api, paths } from '@/lib/api';
 import { formatDate, formatRelativeTime, initials } from '@/lib/utils';
 import { toast } from '@/components/ui/toaster';
+import { ContactSlideOver } from '@/components/contacts/contact-slideover';
 import type { Contact } from '@opsnext/shared';
 
 interface Activity {
@@ -67,6 +68,7 @@ export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [showEdit, setShowEdit] = useState(false);
 
   const { data: contact, isLoading } = useQuery({
     queryKey: ['contacts', id],
@@ -180,7 +182,7 @@ export default function ContactDetailPage() {
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowEdit(true)}>
                     <Edit2 className="h-3 w-3 mr-1" /> Edit
                   </Button>
                   <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10"
@@ -258,6 +260,16 @@ export default function ContactDetailPage() {
           </div>
         </div>
       </div>
+
+      <ContactSlideOver
+        open={showEdit}
+        contact={contact}
+        onClose={() => setShowEdit(false)}
+        onSuccess={() => {
+          setShowEdit(false);
+          queryClient.invalidateQueries({ queryKey: ['contacts', id] });
+        }}
+      />
     </>
   );
 }

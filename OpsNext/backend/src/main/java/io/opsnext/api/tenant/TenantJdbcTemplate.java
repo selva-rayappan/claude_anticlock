@@ -81,6 +81,8 @@ public class TenantJdbcTemplate {
             // PostgreSQL JDBC requires OffsetDateTime for TIMESTAMPTZ columns
             if (val instanceof Instant instant) {
                 val = instant.atOffset(ZoneOffset.UTC);
+            } else if (val instanceof String[] strArr) {
+                val = ps.getConnection().createArrayOf("text", strArr);
             }
             ps.setObject(i + 1, val);
         }

@@ -19,15 +19,67 @@ async function handleResponse<T>(res: Response): Promise<T> {
     const err = (body as { error?: { code?: string; message?: string; details?: unknown } }).error ?? {};
     throw new ApiError(res.status, err.code ?? 'UNKNOWN', err.message ?? res.statusText, err.details);
   }
-  const data = await res.json() as { data: T };
-  return data.data;
+  if (res.status === 204) {
+    return {} as T;
+  }
+  const text = await res.text();
+  if (!text) {
+    return {} as T;
+  }
+  try {
+    const json = JSON.parse(text);
+    return json.data;
+  } catch (e) {
+    return {} as T;
+  }
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init.headers as Record<string, string>),
+  };
+
+  if (typeof window !== 'undefined') {
+    let slug = '';
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    if (parts.length > 2 && parts[0] !== 'www') {
+      slug = parts[0];
+    }
+
+    if (!slug) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tenantParam = searchParams.get('tenant_id') || searchParams.get('tenant');
+      if (tenantParam) {
+        slug = tenantParam;
+      }
+    }
+
+    if (slug) {
+      headers['X-Tenant-Slug'] = slug;
+    }
+
+    // Retrieve access token from persisted Zustand store
+    try {
+      const authStore = localStorage.getItem('opsnext-auth');
+      if (authStore) {
+        const parsed = JSON.parse(authStore);
+        const token = parsed?.state?.token;
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const res = await fetch(url, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+    headers,
     ...init,
   });
   return handleResponse<T>(res);

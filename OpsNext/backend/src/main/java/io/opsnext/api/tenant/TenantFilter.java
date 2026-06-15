@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 public class TenantFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(TenantFilter.class);
-    private static final Pattern SUBDOMAIN_PATTERN = Pattern.compile("^([a-z0-9-]+)\\.opsnext\\.io$");
+    private static final Pattern SUBDOMAIN_PATTERN = Pattern.compile("^([a-z0-9-]+)\\.(?:opsnext\\.io|localhost)(?::\\d+)?$");
     private static final String CACHE_PREFIX = "tenant:slug:";
 
     private final TenantRepository tenantRepository;
@@ -54,7 +54,21 @@ public class TenantFilter extends OncePerRequestFilter {
         String header = request.getHeader("X-Tenant-Slug");
         if (header != null && !header.isBlank()) return header.trim().toLowerCase();
 
-        String host = request.getHeader("Host");
+        // 1. Check query parameters
+        String queryParam = request.getParameter("tenant_id");
+        if (queryParam == null || queryParam.isBlank()) {
+            queryParam = request.getParameter("tenant");
+        }
+        if (queryParam != null && !queryParam.isBlank()) {
+            return queryParam.trim().toLowerCase();
+        }
+
+        // 2. Check X-Forwarded-Host (from Next.js or other proxies)
+        String host = request.getHeader("X-Forwarded-Host");
+        if (host == null || host.isBlank()) {
+            host = request.getHeader("Host");
+        }
+
         if (host != null) {
             Matcher m = SUBDOMAIN_PATTERN.matcher(host);
             if (m.matches()) return m.group(1);

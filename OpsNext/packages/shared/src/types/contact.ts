@@ -18,13 +18,18 @@ export interface Address {
   country?: string;
 }
 
+export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'UNQUALIFIED' | 'CONVERTED';
+
 export interface Contact {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   phones: PhoneEntry[];
+  phone?: string | null;
   title?: string | null;
+  company?: string | null;
+  website?: string | null;
   accountId?: string | null;
   ownerId: string;
   address?: Address | null;
@@ -32,6 +37,8 @@ export interface Contact {
   tags: string[];
   source?: string | null;
   leadSource?: string | null;
+  leadStatus?: LeadStatus | null;
+  leadScore?: number | null;
   customFields: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;

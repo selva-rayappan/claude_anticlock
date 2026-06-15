@@ -36,7 +36,26 @@ public class ContactService {
         m.put("accountName", rs.getString("account_name"));
         m.put("ownerId", rs.getString("owner_id"));
         m.put("ownerName", rs.getString("owner_name"));
-        m.put("tags", rs.getString("tags"));
+
+        java.sql.Array tagsArray = null;
+        try {
+            tagsArray = rs.getArray("tags");
+        } catch (Exception e) {
+            // ignore
+        }
+        List<String> tagsList = List.of();
+        if (tagsArray != null) {
+            try {
+                String[] arr = (String[]) tagsArray.getArray();
+                if (arr != null) {
+                    tagsList = Arrays.asList(arr);
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+        m.put("tags", tagsList);
+
         m.put("phones", rs.getString("phones"));
         m.put("address", rs.getString("address"));
         m.put("socialHandles", rs.getString("social_handles"));
@@ -77,7 +96,6 @@ public class ContactService {
         String dataSql = """
             SELECT c.*, a.name AS account_name,
                    CONCAT(u.first_name, ' ', u.last_name) AS owner_name,
-                   c.tags::text AS tags,
                    c.phones::text AS phones,
                    c.address::text AS address,
                    c.social_handles::text AS social_handles,
@@ -99,7 +117,6 @@ public class ContactService {
         String sql = """
             SELECT c.*, a.name AS account_name,
                    CONCAT(u.first_name, ' ', u.last_name) AS owner_name,
-                   c.tags::text AS tags,
                    c.phones::text AS phones,
                    c.address::text AS address,
                    c.social_handles::text AS social_handles,
@@ -123,12 +140,12 @@ public class ContactService {
             INSERT INTO contacts (id, first_name, last_name, email, title, account_id, owner_id,
                 source, lead_source, email_opt_out, tags, phones, address,
                 social_handles, custom_fields, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, NOW(), NOW())
             """,
             id, req.firstName(), req.lastName(), req.email(), req.title(),
             req.accountId(), ownerId, req.source(), req.leadSource(),
             req.emailOptOut() != null && req.emailOptOut(),
-            toJson(req.tags()), toJson(req.phones()), toJson(req.address()),
+            toArray(req.tags()), toJson(req.phones()), toJson(req.address()),
             toJson(req.socialHandles()), toJson(req.customFields())
         );
         return getById(id);
@@ -153,7 +170,7 @@ public class ContactService {
             setClauses.add("email_opt_out = ?");
             params.add(req.emailOptOut());
         }
-        appendJsonIfNotNull(setClauses, params, "tags = ?::jsonb", req.tags());
+        appendArrayIfNotNull(setClauses, params, "tags = ?", req.tags());
         appendJsonIfNotNull(setClauses, params, "phones = ?::jsonb", req.phones());
         appendJsonIfNotNull(setClauses, params, "address = ?::jsonb", req.address());
         appendJsonIfNotNull(setClauses, params, "social_handles = ?::jsonb", req.socialHandles());
@@ -183,6 +200,15 @@ public class ContactService {
 
     private void appendJsonIfNotNull(List<String> clauses, List<Object> params, String clause, Object value) {
         if (value != null) { clauses.add(clause); params.add(toJson(value)); }
+    }
+
+    private void appendArrayIfNotNull(List<String> clauses, List<Object> params, String clause, List<String> value) {
+        if (value != null) { clauses.add(clause); params.add(toArray(value)); }
+    }
+
+    private String[] toArray(List<String> list) {
+        if (list == null) return null;
+        return list.toArray(new String[0]);
     }
 
     @SuppressWarnings("unchecked")

@@ -52,3 +52,6 @@ pids/
 # Prisma
 prisma/*.db
 prisma/*.db-journal
+
+# Gradle
+.gradle/

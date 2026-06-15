@@ -45,10 +45,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await api.post<{
+        accessToken: string;
         user: { id: string; email: string; firstName: string; lastName: string; roles: string[]; tenantId: string; tier: string };
       }>(paths.auth.login, values);
 
-      setUser(data.user);
+      setUser(data.user, data.accessToken);
       router.push('/dashboard');
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Login failed. Please try again.';

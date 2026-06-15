@@ -7,7 +7,7 @@ import {
   useReactTable, getCoreRowModel, flexRender,
   type ColumnDef, type SortingState, getSortedRowModel,
 } from '@tanstack/react-table';
-import { Plus, Search, Trash2, Tag, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Plus, Search, Trash2, Tag, ChevronUp, ChevronDown, ChevronsUpDown, Pencil } from 'lucide-react';
 import { Topbar } from '@/components/layout/topbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ export default function ContactsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [showCreate, setShowCreate] = useState(false);
+  const [editContact, setEditContact] = useState<Contact | null>(null);
   const [page, setPage] = useState(1);
 
   const query = new URLSearchParams({ page: String(page), limit: '50', ...(search ? { search } : {}) }).toString();
@@ -142,6 +143,28 @@ export default function ContactsPage() {
       ),
       cell: ({ getValue }) => <span className="text-sm text-muted-foreground">{formatDate(getValue() as string)}</span>,
       size: 120,
+    },
+    {
+      id: 'actions',
+      size: 80,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost" size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => setEditContact(row.original)}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={() => { if (confirm('Delete this contact?')) deleteMutation.mutate(row.original.id); }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -254,10 +277,16 @@ export default function ContactsPage() {
         )}
       </div>
 
-      <ContactSlideOver open={showCreate} onClose={() => setShowCreate(false)} onSuccess={() => {
-        setShowCreate(false);
-        queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      }} />
+      <ContactSlideOver
+        open={showCreate || !!editContact}
+        contact={editContact ?? undefined}
+        onClose={() => { setShowCreate(false); setEditContact(null); }}
+        onSuccess={() => {
+          setShowCreate(false);
+          setEditContact(null);
+          queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        }}
+      />
     </>
   );
 }
